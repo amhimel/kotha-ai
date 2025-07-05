@@ -67,6 +67,8 @@ flutter:
   assets:
      - assets/sound_robot.png
      - assets/animations/mic_pulse.json
+     - assets/screenshots/1.jpg
+     - assets/screenshots/2.jpg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

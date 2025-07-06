@@ -1,16 +1,37 @@
-# kotha_ai
+# 🤖 KothaAI – Voice Assistant App (Flutter)
 
-A new Flutter project.
+KothaAI is a futuristic, Jarvis-inspired voice assistant app developed using Flutter. It supports voice commands, animated mic effects, and text-to-speech output.
 
-## Getting Started
+<div align="center">
+  <img src="assets/screenshots/1.jpeg" alt="KothaAI Screenshot" width="300"/>
+</div>
 
-This project is a starting point for a Flutter application.
+---
 
-A few resources to get you started if this is your first Flutter project:
+## ✨ Features
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+- 🎤 Voice input using speech recognition
+- 🔊 Text-to-speech response with Flutter TTS
+- 🌈 Lottie mic pulse animation (Jarvis-style)
+- 🧠 Intelligent voice response area
+- 📱 Clean & modern UI with dark theme
+- 🌐 Multi-language support ready (Bangla, English)
+- 🔌 IoT integration ready (smart light on/off)
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+---
+
+## 🖼️ Screenshots
+
+| Home Screen | Mic Listening | After Call Command Work |
+|-------------|----------------|
+| <img src="assets/screenshots/1.jpeg" width="200"/> | <img src="assets/screenshots/2.jpeg" width="200"/> | <img src="assets/screenshots/3.jpeg" width="200"/> |
+
+---
+
+## 🚀 Getting Started
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/your-username/kothaai.git
+cd kothaai

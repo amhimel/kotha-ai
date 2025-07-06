@@ -40,6 +40,9 @@ dependencies:
   provider: ^6.1.1
   lottie: ^3.3.1
   google_fonts: ^6.2.1
+  url_launcher: ^6.2.5
+  permission_handler: ^12.0.1
+  flutter_contacts: ^1.1.9+2
 
 dev_dependencies:
   flutter_test:
@@ -66,6 +69,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
      - assets/sound_robot.png
+     - assets/robot.png
      - assets/animations/mic_pulse.json
      - assets/screenshots/1.jpg
      - assets/screenshots/2.jpg

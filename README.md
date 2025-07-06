@@ -23,7 +23,7 @@ KothaAI is a futuristic, Jarvis-inspired voice assistant app developed using Flu
 ## 🖼️ Screenshots
 
 | Home Screen | Mic Listening | 
-|-------------|----------------|-------------------------|
+|-------------|----------------|
 | <img src="assets/screenshots/1.jpeg" width="200"/> | <img src="assets/screenshots/2.jpeg" width="200"/> |
 ---
 | After Call Command Work |

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:lottie/lottie.dart';
+import 'package:kotha_ai/ui/widgets/custom_appbar.dart';
+import 'package:kotha_ai/ui/widgets/kotha_greeting_card.dart';
+import 'package:kotha_ai/ui/widgets/kotha_listening_card.dart';
+import 'package:kotha_ai/ui/widgets/kotha_mic_button.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:flutter/services.dart';
 
 //for convert speech to text
 late stt.SpeechToText _speech;
@@ -20,7 +24,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String _response = "How can I help you today?";
   bool _isListening = false;
   final FlutterTts tts = FlutterTts();
-  //final _responseContent =  ;
 
   @override
   void initState() {
@@ -69,12 +72,12 @@ class _HomeScreenState extends State<HomeScreen> {
       _response = "Turning on the light... 💡";
     } else if (cmd.contains("turn off the light")) {
       _response = "Turning off the light";
-
     } else if (cmd.startsWith("call ")) {
       final name = cmd.replaceFirst("call ", "").trim();
-      _response = "Checking contact list for $name...";
+      _response = "Calling $name...";
       speak(_response);
       _callContactByName(name);
+
     } else if (cmd.contains("play music")) {
       _response = "Playing music... 🎶";
       // You can open a local music player or online URL
@@ -82,8 +85,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _response = "Opening Facebook... 🌐";
       const url = 'https://facebook.com';
       _launchURL(url);
-
-
     } else if (cmd.contains("open game")) {
       _response = "Opening your game... 🎮";
       // You can integrate with Android Intent or app launcher plugin
@@ -98,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _launchURL(String url) async {
-    try{
+    try {
       final Uri uri = Uri.parse(url);
       final canLaunch = await canLaunchUrl(uri);
       print("Can launch: $canLaunch");
@@ -107,7 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
       } else {
         print("✅ Launched $url");
       }
-    }catch(e) {
+    } catch (e) {
       print("Exception: $e");
     }
   }
@@ -128,24 +129,29 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // 3️⃣ Search for contact by name
       final match = contacts.firstWhere(
-            (c) => c.displayName.toLowerCase().contains(name.toLowerCase()),
+        (c) => c.displayName.toLowerCase().contains(name.toLowerCase()),
         orElse: () => Contact(),
       );
 
       if (match.phones.isNotEmpty) {
         final phone = match.phones.first.number;
-        final uri = Uri.parse('tel:$phone');
-
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri);
-          setState(() {
-            _response = "Calling $name at $phone...";
-          });
+        if (await _requestCallPermission()) {
+          _directPhoneCall(phone);
         } else {
-          setState(() {
-            _response = "Could not launch call.";
-          });
+          _response = "Please allow phone call permission.";
+          setState(() {});
         }
+        //final uri = Uri.parse('tel:$phone');
+        // if (await canLaunchUrl(uri)) {
+        //   await launchUrl(uri);
+        //   setState(() {
+        //     _response = "Calling $name...";
+        //   });
+        // } else {
+        //   setState(() {
+        //     _response = "Could not launch call.";
+        //   });
+        // }
       } else {
         setState(() {
           _response = "No contact found named $name.";
@@ -156,8 +162,16 @@ class _HomeScreenState extends State<HomeScreen> {
         _response = "Error: ${e.toString()}";
       });
     }
+    speak(_response);
+    setState(() {
+      _response = 'How can I help you today?';
+    }); // optional if TTS used
+  }
 
-    speak(_response); // optional if TTS used
+  //for direct call permission
+  Future<bool> _requestCallPermission() async {
+    final status = await Permission.phone.request();
+    return status.isGranted;
   }
 
   //for speaking the response text
@@ -166,22 +180,19 @@ class _HomeScreenState extends State<HomeScreen> {
     await tts.speak(text);
   }
 
-  //custom AppBar
-  AppBar _buildAppBar() {
-    List<Color> gradientColorsAppBar = [Color(0xff1B1745), Color(0xff1A1731)];
-    return AppBar(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      flexibleSpace: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: gradientColorsAppBar,
-            //transform: GradientRotation(180)
-          ),
-        ),
-      ),
-    );
+  Future<void> _directPhoneCall(String number) async {
+    const platform = MethodChannel('com.kothaai/call');
+
+    try {
+      final result = await platform.invokeMethod('callNumber', {
+        'number': number,
+      });
+      print(result);
+    } on PlatformException catch (e) {
+      print("Failed to call: ${e.message}");
+    }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -192,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
 
     return Scaffold(
-      appBar: _buildAppBar(),
+      appBar: CustomAppbar(),
       body: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(colors: gradientColorsScaffold),
@@ -203,131 +214,21 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // 👋 Greeting
-                Column(
-                  //mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    //const SizedBox(height: 40),
-                    Text(
-                      "Ask Kotha",
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.start,
+                //👋 Greeting
+                !_isListening
+                    ? KothaGreetingCard(
+                      gradientColors: gradientColorsContainer,
+                      responseText: _response,
+                    )
+                    : KothaListeningCard(
+                      responseText: _response,
+                      gradientColors: gradientColorsContainer,
                     ),
-                    //for home
-                    Container(
-                      padding: EdgeInsets.all(16),
-                      height: 220,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        gradient: LinearGradient(
-                          colors: gradientColorsContainer,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Image.asset(
-                            'assets/sound_robot.png',
-                            width: 40,
-                            height: 40,
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            "👋 Hi, I'm Kotha",
-                            style: Theme.of(
-                              context,
-                            ).textTheme.headlineSmall?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.start,
-                          ),
-
-                          Text(
-                            _response,
-                            style: Theme.of(
-                              context,
-                            ).textTheme.headlineSmall?.copyWith(
-                              color: Colors.grey[300],
-                              fontWeight: FontWeight.bold,
-                            ),
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
-
 
                 // 🎤 Mic Button
-                Column(
-                  children: [
-                    // 🎤 Replace GestureDetector block with Lottie animation
-                    SizedBox(
-                      height: 160,
-                      width: 160,
-                      child: GestureDetector(
-                        onTap: _toggleListening,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            //if (_isListening)
-                            AnimatedOpacity(
-                              duration: Duration(milliseconds: 300),
-                              opacity: _isListening ? 1.0 : 0.0,
-                              child: Lottie.asset(
-                                'assets/animations/mic_pulse.json',
-                                height: 160,
-                                width: 160,
-                                fit: BoxFit.cover,
-                                repeat: true,
-                              ),
-                            ),
-
-                            Container(
-                              height: 100,
-                              width: 100,
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Color(0xFF99FCD1), // Light mint
-                                    Color(0xFF539FE0), // Blue-ish
-                                    Color(0xFF0092FF), // Vibrant blue
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Color(0xFF0092FF),
-                                    // Same as end color
-                                    blurRadius: 20,
-                                    spreadRadius: 3,
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.mic,
-                                size: 40,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-                  ],
+                KothaMicButton(
+                  isListening: _isListening,
+                  toggleListening: _toggleListening,
                 ),
               ],
             ),

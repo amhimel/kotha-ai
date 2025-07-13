@@ -9,6 +9,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter/services.dart';
+import 'package:torch_light/torch_light.dart';
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 //for convert speech to text
 late stt.SpeechToText _speech;
@@ -50,8 +53,6 @@ class _HomeScreenState extends State<HomeScreen> {
               if (result.finalResult) {
                 _isListening = false;
                 _speech.stop();
-
-                // 🔁 Process the command
                 processCommand(_response);
               }
             });
@@ -68,34 +69,47 @@ class _HomeScreenState extends State<HomeScreen> {
   void processCommand(String command) async {
     final cmd = command.toLowerCase();
 
-    if (cmd.contains("turn on the light")) {
-      _response = "Turning on the light... 💡";
-    } else if (cmd.contains("turn off the light")) {
-      _response = "Turning off the light";
+    if ( cmd.contains("flash") || cmd.contains("torch") ) {
+      if (cmd.contains("off")) {
+        toggleFlashlight(false);
+        _response = "Turning off flashlight";
+      } else if (cmd.contains("on")) {
+        toggleFlashlight(true);
+        _response = "Turning on flashlight";
+      } else {
+        _response = "Do you want to turn the flashlight on or off?";
+      }
+      speak(_response);
     } else if (cmd.startsWith("call ")) {
       final name = cmd.replaceFirst("call ", "").trim();
       _response = "Calling $name...";
       speak(_response);
       _callContactByName(name);
 
-    } else if (cmd.contains("play music")) {
-      _response = "Playing music... 🎶";
-      // You can open a local music player or online URL
-    } else if (cmd.contains("open facebook")) {
+    }else if (cmd.contains("open facebook")) {
       _response = "Opening Facebook... 🌐";
       const url = 'https://facebook.com';
       _launchURL(url);
-    } else if (cmd.contains("open game")) {
-      _response = "Opening your game... 🎮";
-      // You can integrate with Android Intent or app launcher plugin
-    } else if (cmd.contains("ajker khobor") || cmd.contains("আজকের খবর")) {
+    }  else if (cmd.contains("ajker khobor") || cmd.contains("আজকের খবর")) {
       _response = "আজকের শীর্ষ খবর: আজকের তাপমাত্রা ৩২° এবং আকাশ আংশিক মেঘলা।";
     } else {
       _response = "Sorry, I didn’t understand that.";
     }
-
     speak(_response);
     setState(() {});
+  }
+
+  //flash light one off
+  Future<void> toggleFlashlight(bool turnOn) async {
+    try {
+      if (turnOn) {
+        await TorchLight.enableTorch();
+      } else {
+        await TorchLight.disableTorch();
+      }
+    } catch (e) {
+      print("Flash error: $e");
+    }
   }
 
   Future<void> _launchURL(String url) async {
@@ -104,9 +118,9 @@ class _HomeScreenState extends State<HomeScreen> {
       final canLaunch = await canLaunchUrl(uri);
       print("Can launch: $canLaunch");
       if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-        print("❌ Could not launch $url");
+        print("Could not launch $url");
       } else {
-        print("✅ Launched $url");
+        print("Launched $url");
       }
     } catch (e) {
       print("Exception: $e");

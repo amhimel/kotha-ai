@@ -10,15 +10,15 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter/services.dart';
 import 'package:torch_light/torch_light.dart';
-import 'package:android_intent_plus/android_intent.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:kotha_ai/model/weather_model.dart';
+import 'package:kotha_ai/services/weather_service.dart';
+import '../widgets/weather_card.dart';
+import 'package:geolocator/geolocator.dart';
 
-//for convert speech to text
 late stt.SpeechToText _speech;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
-
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -26,6 +26,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String _response = "How can I help you today?";
   bool _isListening = false;
+  bool _showWeather = false;
+  bool _isLoadingWeather = false;
+  WeatherModel? _weatherData;
+  final WeatherService _weatherService = WeatherService();
   final FlutterTts tts = FlutterTts();
 
   @override
@@ -34,12 +38,36 @@ class _HomeScreenState extends State<HomeScreen> {
     _speech = stt.SpeechToText();
   }
 
-  //after click on button what work done.
+  //get current location method
+  Future<Position> _determinePosition() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return Future.error('Location services are disabled.');
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return Future.error('Location permissions are denied');
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return Future.error('Location permissions are permanently denied');
+    }
+
+    return await Geolocator.getCurrentPosition();
+  }
+
   Future<void> _toggleListening() async {
     if (!_isListening) {
       bool available = await _speech.initialize(
-        onStatus: (status) => print("Speech status: $status"),
-        onError: (error) => print("Speech error: $error"),
+        onStatus: (status) => print("Speech status: \$status"),
+        onError: (error) => print("Speech error: \$error"),
       );
 
       if (available) {
@@ -57,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
               }
             });
           },
-          localeId: 'en_US', // চাইলে 'bn_BD' ব্যবহার করতে পারো
+          localeId: 'en_US',
         );
       }
     } else {
@@ -69,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void processCommand(String command) async {
     final cmd = command.toLowerCase();
 
-    if ( cmd.contains("flash") || cmd.contains("torch") ) {
+    if (cmd.contains("flash") || cmd.contains("torch")) {
       if (cmd.contains("off")) {
         toggleFlashlight(false);
         _response = "Turning off flashlight";
@@ -82,16 +110,53 @@ class _HomeScreenState extends State<HomeScreen> {
       speak(_response);
     } else if (cmd.startsWith("call ")) {
       final name = cmd.replaceFirst("call ", "").trim();
-      _response = "Calling $name...";
+      _response = "Calling \$name...";
       speak(_response);
       _callContactByName(name);
-
-    }else if (cmd.contains("open facebook")) {
+    } else if (cmd.contains("open facebook")) {
       _response = "Opening Facebook... 🌐";
       const url = 'https://facebook.com';
       _launchURL(url);
-    }  else if (cmd.contains("ajker khobor") || cmd.contains("আজকের খবর")) {
-      _response = "আজকের শীর্ষ খবর: আজকের তাপমাত্রা ৩২° এবং আকাশ আংশিক মেঘলা।";
+    } else if (cmd.contains("today's weather") ||
+        cmd.contains("weather today")) {
+      setState(() {
+        _response = "Today’s weather...";
+        _isLoadingWeather = true;
+        _showWeather = true;
+      });
+
+      try {
+        final position = await _determinePosition();
+        final weather = await _weatherService.fetchWeatherByLocation(
+          position.latitude,
+          position.longitude,
+        );
+        if (weather != null) {
+          setState(() {
+            _isLoadingWeather = false;
+            _weatherData = weather;
+            _response = "Here is your result for today’s forecast!";
+          });
+        } else {
+          setState(() {
+            _response = "Could not fetch weather data.";
+          });
+        }
+      } catch (e) {
+        print(e);
+        setState(() {
+          _response = "Location access error.";
+          _showWeather = false;
+        });
+      }
+      Future.delayed(const Duration(seconds: 10), () {
+        setState(() {
+          _showWeather = false;
+          _response = "How can I help you today?";
+        });
+      });
+
+      speak(_response);
     } else {
       _response = "Sorry, I didn’t understand that.";
     }
@@ -99,7 +164,6 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {});
   }
 
-  //flash light one off
   Future<void> toggleFlashlight(bool turnOn) async {
     try {
       if (turnOn) {
@@ -108,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
         await TorchLight.disableTorch();
       }
     } catch (e) {
-      print("Flash error: $e");
+      print("Flash error: \$e");
     }
   }
 
@@ -116,21 +180,16 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final Uri uri = Uri.parse(url);
       final canLaunch = await canLaunchUrl(uri);
-      print("Can launch: $canLaunch");
       if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-        print("Could not launch $url");
-      } else {
-        print("Launched $url");
+        print("Could not launch \$url");
       }
     } catch (e) {
-      print("Exception: $e");
+      print("Exception: \$e");
     }
   }
 
-  //for call command and call those name
   Future<void> _callContactByName(String name) async {
     try {
-      // 1️⃣ Permission check
       if (!await FlutterContacts.requestPermission()) {
         setState(() {
           _response = "Contact permission denied.";
@@ -138,10 +197,8 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      // 2️⃣ Fetch all contacts with numbers
       final contacts = await FlutterContacts.getContacts(withProperties: true);
 
-      // 3️⃣ Search for contact by name
       final match = contacts.firstWhere(
         (c) => c.displayName.toLowerCase().contains(name.toLowerCase()),
         orElse: () => Contact(),
@@ -155,58 +212,43 @@ class _HomeScreenState extends State<HomeScreen> {
           _response = "Please allow phone call permission.";
           setState(() {});
         }
-        //final uri = Uri.parse('tel:$phone');
-        // if (await canLaunchUrl(uri)) {
-        //   await launchUrl(uri);
-        //   setState(() {
-        //     _response = "Calling $name...";
-        //   });
-        // } else {
-        //   setState(() {
-        //     _response = "Could not launch call.";
-        //   });
-        // }
       } else {
         setState(() {
-          _response = "No contact found named $name.";
+          _response = "No contact found named \$name.";
         });
       }
     } catch (e) {
       setState(() {
-        _response = "Error: ${e.toString()}";
+        _response = "Error: \${e.toString()}";
       });
     }
     speak(_response);
     setState(() {
       _response = 'How can I help you today?';
-    }); // optional if TTS used
+    });
   }
 
-  //for direct call permission
   Future<bool> _requestCallPermission() async {
     final status = await Permission.phone.request();
     return status.isGranted;
   }
 
-  //for speaking the response text
   void speak(String text) async {
-    await tts.setLanguage('en-US'); // বা 'bn-BD'
+    await tts.setLanguage('en-US');
     await tts.speak(text);
   }
 
   Future<void> _directPhoneCall(String number) async {
     const platform = MethodChannel('com.kothaai/call');
-
     try {
       final result = await platform.invokeMethod('callNumber', {
         'number': number,
       });
       print(result);
-    } on PlatformException catch (e) {
-      print("Failed to call: ${e.message}");
+    } on PlatformException {
+      print("Failed to call: \${e.message}");
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -228,18 +270,28 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                //👋 Greeting
-                !_isListening
-                    ? KothaGreetingCard(
-                      gradientColors: gradientColorsContainer,
-                      responseText: _response,
-                    )
-                    : KothaListeningCard(
-                      responseText: _response,
-                      gradientColors: gradientColorsContainer,
-                    ),
+                if (_isLoadingWeather)
+                  KothaListeningCard(
+                    responseText: _response,
+                    gradientColors: gradientColorsContainer,
+                    isLoading: true,
+                  )
+                else if (_showWeather && _weatherData != null)
+                  KothaWeatherCard(
+                    gradientColors: gradientColorsContainer,
+                    weather: _weatherData!,
+                  )
+                else if (!_isListening)
+                  KothaGreetingCard(
+                    gradientColors: gradientColorsContainer,
+                    responseText: _response,
+                  )
+                else
+                  KothaListeningCard(
+                    responseText: _response,
+                    gradientColors: gradientColorsContainer,
+                  ),
 
-                // 🎤 Mic Button
                 KothaMicButton(
                   isListening: _isListening,
                   toggleListening: _toggleListening,

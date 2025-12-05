@@ -128,7 +128,6 @@ lib/
 - Multi-language support
 - Watchlist & history
 - Push notifications
-- Full trailer playback
 
 
 ---
@@ -143,3 +142,4 @@ If you spot UI/UX tweaks, accessibility fixes, or performance improvements, plea
 ## 📝 License
 
 MIT © 2025-12-04 — Kotha AI Contributors
+
